@@ -1,0 +1,30 @@
+{
+  "name": "convites-backend",
+  "version": "1.0.0",
+  "description": "API backend para sistema de convites de aniversário (Node.js + Express + Prisma + Swagger + Mailgun)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "prisma": "prisma"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.0.0",
+    "bcrypt": "^5.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.2",
+    "form-data": "^4.0.1",
+    "jsonwebtoken": "^9.0.0",
+    "mailgun.js": "^11.1.0",
+    "nodemailer": "^6.9.3",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22",
+    "prisma": "^5.0.0"
+  },
+  "author": "Dayvid Weslley dos Santos Lopes",
+  "license": "MIT"
+}

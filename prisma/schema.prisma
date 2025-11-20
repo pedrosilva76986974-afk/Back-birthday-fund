@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  ID_Usuario       Int                 @id @default(autoincrement())
+  Nome_Usuario     String
+  Email_Usuario    String              @unique
+  Senha_Usuario    String
+  EventosCriados   Evento[]            @relation("Usuario_EventosCriados")
+  ConvidadoUsuario Convidado_Usuario[]
+  BancoUsuario     Banco_Usuario[]
+  BancoParametros  Banco_Parametro[]
+  PasswordResetTokens PasswordResetToken[] 
+}
+
+model Convidado {
+  ID_Convidado        Int                 @id @default(autoincrement())
+  Nome_Convidado      String
+  Email_Convidado     String              @unique
+  Senha_Convidado     String
+  ConvidadoUsuario    Convidado_Usuario[]
+  EventoConvidado     Evento_Convidado[]
+  Doacoes             Doacao[]
+}
+
+model Evento {
+  ID_Evento          Int               @id @default(autoincrement())
+  ID_Usuario_Criador Int
+  Titulo_Evento      String
+  Data_Evento        DateTime
+  Local_Evento       String
+  Horario_Evento     DateTime
+
+  UsuarioCriador     Usuario           @relation("Usuario_EventosCriados", fields: [ID_Usuario_Criador], references: [ID_Usuario])
+  EventoConvidado    Evento_Convidado[]
+  Campanhas          Campanha[]
+  Doacoes            Doacao[]
+}
+
+model Convidado_Usuario {
+  ID_Usuario     Int
+  ID_Convidado   Int
+  Nome_Convidado String
+  Data_Cadastro  DateTime   @default(now())
+  Flag_Ativo     Boolean    @default(true)
+
+  Usuario        Usuario   @relation(fields: [ID_Usuario], references: [ID_Usuario])
+  Convidado      Convidado @relation(fields: [ID_Convidado], references: [ID_Convidado])
+
+  @@id([ID_Usuario, ID_Convidado])
+}
+
+model Evento_Convidado {
+  ID_Evento      Int
+  ID_Convidado   Int
+  Data_Cadastro  DateTime  @default(now())
+
+  Evento         Evento    @relation(fields: [ID_Evento], references: [ID_Evento])
+  Convidado      Convidado @relation(fields: [ID_Convidado], references: [ID_Convidado])
+
+  @@id([ID_Evento, ID_Convidado])
+}
+
+model Banco {
+  ID_Banco        Int             @id @default(autoincrement())
+  Nome_Banco      String
+  Codigo_Banco    String
+  BancoUsuario    Banco_Usuario[]
+  BancoParametros Banco_Parametro[]
+  Campanhas       Campanha[]
+}
+
+model Banco_Usuario {
+  ID_Banco     Int
+  ID_Usuario   Int
+  Nome_Banco   String
+  Codigo_Banco String
+
+  Banco        Banco    @relation(fields: [ID_Banco], references: [ID_Banco])
+  Usuario      Usuario  @relation(fields: [ID_Usuario], references: [ID_Usuario])
+
+  @@id([ID_Banco, ID_Usuario])
+}
+
+model Banco_Parametro {
+  ID_Parametro        Int     @id @default(autoincrement())
+  ID_Banco            Int
+  ID_Usuario          Int
+  Descricao_Parametro String
+  Chave_Api           String
+
+  Banco   Banco   @relation(fields: [ID_Banco], references: [ID_Banco])
+  Usuario Usuario @relation(fields: [ID_Usuario], references: [ID_Usuario])
+}
+
+model Campanha {
+  ID_Campanha             Int      @id @default(autoincrement())
+  ID_Evento               Int
+  ID_Banco                Int
+  Meta_Financeira_Campanha Float
+  Chave_Pix_Campanha      String
+  QRCode_Pix_URL_Campanha String
+  Status_Campanha         String
+
+  Evento   Evento   @relation(fields: [ID_Evento], references: [ID_Evento])
+  Banco    Banco    @relation(fields: [ID_Banco], references: [ID_Banco])
+  Doacoes  Doacao[]
+}
+
+model Doacao {
+  ID_Doacao    Int       @id @default(autoincrement())
+  ID_Campanha  Int
+  ID_Evento    Int
+  ID_Convidado Int
+  Valor_Doacao Float
+  Data_Doacao  DateTime  @default(now())
+
+  Campanha     Campanha  @relation(fields: [ID_Campanha], references: [ID_Campanha])
+  Evento       Evento    @relation(fields: [ID_Evento], references: [ID_Evento])
+  Convidado    Convidado @relation(fields: [ID_Convidado], references: [ID_Convidado])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     Int
+  tokenHash  String
+  expiresAt  DateTime
+  used       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user       Usuario  @relation(fields: [userId], references: [ID_Usuario])
+
+  @@index([tokenHash])
+}

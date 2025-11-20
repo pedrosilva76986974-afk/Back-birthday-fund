@@ -1,0 +1,26 @@
+Estrutura:
+   convites-backend/
+   ├─ package.json
+   ├─ prisma/
+   │  └─ schema.prisma
+   ├─ .env.example
+   └─ src/
+      ├─ index.js
+      ├─ prismaClient.js
+      ├─ utils/email.js
+      ├─ middlewares/auth.js
+      └─ routes/*.js
+
+
+Instruções de execução:
+1 - (Recomendado) Rode Postgres via Docker:
+   docker run --name postgres-convites -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=convitesdb -p 5432:5432 -d postgres:16
+2 - Instale dependencias:
+   npm install
+3 - Gere Prisma Client e rode migração:
+   npx prisma generate
+   npx prisma migrate dev --name init
+4 - Rode em desenvolvimento:
+   npm run dev
+5 - Abra o Prisma Studio para inspecionar dados:
+   npx prisma studio
