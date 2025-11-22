@@ -10,8 +10,7 @@ const options = {
       version: "1.0.0",
       description: "API para sistema de convites de aniversário.",
       contact: {
-        name: "Dayvid Weslley dos Santos Lopes <dayvid.weslley@souunit.com.br",
-        email: "dayvid.weslley@souunit.com.br",
+        name: "Suporte",
       },
     },
     servers: [
@@ -30,10 +29,15 @@ const options = {
       },
     },
   },
-  apis: ["./src/routes/*.js"],
+  // --- MUDANÇA AQUI ---
+  // Deixei vazio [] para o servidor parar de tentar ler os arquivos com erro.
+  // Se o servidor ligar, o problema é formatação nos comentários das rotas.
+  apis: [], 
+  // O original era: apis: ["./src/routes/*.js"],
 };
 
 const swaggerSpec = swaggerJSDoc(options);
+
 module.exports = {
   swaggerUiServe: swaggerUi.serve,
   swaggerUiSetup: swaggerUi.setup(swaggerSpec),
