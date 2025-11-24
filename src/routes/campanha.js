@@ -60,4 +60,80 @@ router.get('/', async (req, res) => {
     res.json(campanhas);
 });
 
+// ... códigos anteriores (imports, create, encerrar, etc)
+
+/**
+ * @swagger
+ * /campanha/minhas:
+ * get:
+ * summary: Listar apenas as campanhas do usuário logado
+ * tags: [Campanhas]
+ * security:
+ * - bearerAuth: []
+ * responses:
+ * 200:
+ * description: Lista das minhas campanhas
+ */
+router.get('/minhas', auth, async (req, res) => {
+    try {
+        const userId = req.user.userId; // Pega o ID de quem está logado
+
+        const minhasCampanhas = await prisma.campanha.findMany({
+            where: {
+                Evento: {
+                    ID_Usuario_Criador: userId // Filtra pelo dono do evento
+                }
+            },
+            include: {
+                Evento: true // Traz os dados do evento junto (Título, Data, etc)
+            }
+        });
+
+        res.json(minhasCampanhas);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Erro ao buscar campanhas do usuário' });
+    }
+});
+
+/**
+ * @swagger
+ * /campanha/usuario/{id}:
+ * get:
+ * summary: Listar campanhas de um usuário específico pelo ID
+ * tags: [Campanhas]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * responses:
+ * 200:
+ * description: Lista de campanhas do usuário solicitado
+ */
+router.get('/usuario/:id', auth, async (req, res) => {
+    try {
+        const idUsuarioAlvo = parseInt(req.params.id);
+
+        const campanhas = await prisma.campanha.findMany({
+            where: {
+                Evento: {
+                    ID_Usuario_Criador: idUsuarioAlvo
+                }
+            },
+            include: {
+                Evento: true
+            }
+        });
+
+        res.json(campanhas);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Erro ao buscar campanhas' });
+    }
+});
+
 module.exports = router;
