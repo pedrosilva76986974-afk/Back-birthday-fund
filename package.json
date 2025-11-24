@@ -20,7 +20,8 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^6.9.3",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "socket.io": "^4.7.5"
   },
   "devDependencies": {
     "nodemon": "^2.0.22",
