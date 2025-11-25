@@ -54,14 +54,95 @@ const auth = require('../middlewares/auth');
  *       400:
  *         description: Dados inválidos
  */
+
 router.post('/', auth, async (req, res) => {
-    const { Titulo_Evento, Data_Evento, Local_Evento, Horario_Evento } = req.body;
-    const ID_Usuario_Criador = req.user.userId;
-    const evento = await prisma.evento.create({
-        data: { Titulo_Evento, Data_Evento: new Date(Data_Evento), Local_Evento, Horario_Evento: new Date(Horario_Evento), ID_Usuario_Criador }
-    });
-    res.status(201).json(evento);
+    try {
+        const { 
+            Titulo_Evento, Data_Evento, Local_Evento, Horario_Evento, 
+            Descricao_Evento, Convidados, Campanha 
+        } = req.body;
+
+        // 1. Validação do Usuário
+        const idUsuario = req.user.userId || req.user.ID_Usuario || req.body.ID_Usuario_Criador;
+        if (!idUsuario) return res.status(400).json({ error: "Usuário não identificado." });
+
+        // 2. Tratamento de Data
+        const dataFormatada = new Date(Data_Evento);
+        const dataHoraString = `${Data_Evento.split('T')[0]}T${Horario_Evento}:00.000Z`; 
+        const horarioFormatado = new Date(dataHoraString);
+
+        // 3. Transação (Salva tudo ou nada)
+        const resultado = await prisma.$transaction(async (tx) => {
+            
+            // A. Criar Evento
+            const novoEvento = await tx.evento.create({
+                data: {
+                    ID_Usuario_Criador: parseInt(idUsuario),
+                    Titulo_Evento,
+                    Data_Evento: dataFormatada,
+                    Local_Evento,
+                    Horario_Evento: isValidDate(horarioFormatado) ? horarioFormatado : new Date(),
+                }
+            });
+
+            // B. Convidados
+            if (Convidados) {
+                const listaEmails = Array.isArray(Convidados) ? Convidados : Convidados.split(',').map(e => e.trim()).filter(e => e);
+                for (const email of listaEmails) {
+                    let convidado = await tx.convidado.findUnique({ where: { Email_Convidado: email } });
+                    if (!convidado) {
+                        convidado = await tx.convidado.create({
+                            data: { Nome_Convidado: email.split('@')[0], Email_Convidado: email, Senha_Convidado: "temp123" }
+                        });
+                    }
+                    await tx.evento_Convidado.create({
+                        data: { ID_Evento: novoEvento.ID_Evento, ID_Convidado: convidado.ID_Convidado }
+                    });
+                }
+            }
+
+            // C. Campanha (CORREÇÃO AQUI: CRIA BANCO SE NÃO EXISTIR)
+            if (Campanha && (Campanha.meta > 0 || Campanha.chavePix)) {
+                
+                // Tenta achar qualquer banco
+                let banco = await tx.banco.findFirst();
+                
+                // Se não existir nenhum banco, cria um "Genérico" para não travar
+                if (!banco) {
+                    console.log("⚠️ Nenhum banco encontrado. Criando Banco Padrão...");
+                    banco = await tx.banco.create({
+                        data: {
+                            Nome_Banco: "Banco Padrão", // Nome genérico
+                            Codigo_Banco: "000"
+                        }
+                    });
+                }
+
+                await tx.campanha.create({
+                    data: {
+                        ID_Evento: novoEvento.ID_Evento,
+                        ID_Banco: banco.ID_Banco, // Agora usa um ID válido que existe com certeza
+                        Meta_Financeira_Campanha: parseFloat(Campanha.meta || 0),
+                        Chave_Pix_Campanha: Campanha.chavePix || "Não informada",
+                        QRCode_Pix_URL_Campanha: "",
+                        Status_Campanha: "ATIVA"
+                    }
+                });
+            }
+
+            return novoEvento;
+        });
+
+        res.status(201).json(resultado);
+
+    } catch (error) {
+        console.error("Erro ao criar evento:", error);
+        res.status(500).json({ error: 'Erro interno ao processar evento.' });
+    }
 });
+
+// Função auxiliar para validar data
+function isValidDate(d) { return d instanceof Date && !isNaN(d); }
 
 /**
  * @swagger
@@ -200,24 +281,27 @@ router.get('/usuario/:id', auth, async (req, res) => {
 router.get('/convites/:email', auth, async (req, res) => {
     try {
         const email = req.params.email;
+        
         const eventos = await prisma.evento.findMany({
             where: {
                 EventoConvidado: {
-                    some: { Convidado: { Email_Convidado: email } }
+                    some: { Convidado: { Email_Convidado: { equals: email, mode: 'insensitive' } } }
                 }
             },
             include: {
-                // CORREÇÃO 2: Mudamos de 'Usuario' para 'UsuarioCriador'
-                // O erro do console confirmou que o nome correto da relação é UsuarioCriador
-                UsuarioCriador: { 
-                    select: { Nome_Usuario: true } 
+                // Traz dados do dono do evento
+                UsuarioCriador: { select: { Nome_Usuario: true, Email_Usuario: true } },
+                // Traz o ID do Convidado ESPECÍFICO deste email neste evento
+                EventoConvidado: {
+                    where: { Convidado: { Email_Convidado: { equals: email, mode: 'insensitive' } } },
+                    select: { ID_Convidado: true } 
                 }
             },
             orderBy: { Data_Evento: 'asc' }
         });
         res.json(eventos);
     } catch (error) {
-        console.error("Erro ao buscar convites:", error);
+        console.error("Erro convites:", error);
         res.status(500).json({ error: 'Erro ao buscar convites' });
     }
 });
@@ -261,6 +345,85 @@ router.delete('/:id', auth, async (req, res) => {
     } catch (error) {
         console.error("Erro ao excluir evento:", error);
         res.status(500).json({ error: 'Erro ao excluir evento. Tente novamente.' });
+    }
+});
+
+router.get('/:id/convidados', auth, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const convidados = await prisma.evento_Convidado.findMany({
+            where: { ID_Evento: id },
+            include: {
+                Convidado: { select: { ID_Convidado: true, Nome_Convidado: true, Email_Convidado: true } }
+            }
+        });
+        res.json(convidados);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao listar convidados.' });
+    }
+});
+
+// ADICIONAR CONVIDADO A EVENTO EXISTENTE
+router.post('/:id/convidar', auth, async (req, res) => {
+    try {
+        const idEvento = parseInt(req.params.id);
+        const { email } = req.body; // Espera { "email": "joao@gmail.com" }
+
+        if (!email) return res.status(400).json({ error: "E-mail obrigatório." });
+
+        // Transação para garantir integridade
+        await prisma.$transaction(async (tx) => {
+            // 1. Acha ou cria o convidado
+            let convidado = await tx.convidado.findUnique({ where: { Email_Convidado: email } });
+            
+            if (!convidado) {
+                convidado = await tx.convidado.create({
+                    data: {
+                        Nome_Convidado: email.split('@')[0], // Nome temporário
+                        Email_Convidado: email,
+                        Senha_Convidado: "convite123" // Senha placeholder
+                    }
+                });
+            }
+
+            // 2. Verifica se já foi convidado
+            const jaConvidado = await tx.evento_Convidado.findFirst({
+                where: { ID_Evento: idEvento, ID_Convidado: convidado.ID_Convidado }
+            });
+
+            if (jaConvidado) throw new Error("Pessoa já convidada.");
+
+            // 3. Cria o vínculo
+            await tx.evento_Convidado.create({
+                data: { ID_Evento: idEvento, ID_Convidado: convidado.ID_Convidado }
+            });
+        });
+
+        res.json({ message: "Convite enviado com sucesso!" });
+
+    } catch (error) {
+        console.error(error);
+        res.status(400).json({ error: error.message || "Erro ao convidar." });
+    }
+});
+
+// REMOVER CONVIDADO
+router.delete('/:id/convidar/:idConvidado', auth, async (req, res) => {
+    try {
+        const idEvento = parseInt(req.params.id);
+        const idConvidado = parseInt(req.params.idConvidado);
+
+        // O prisma não tem chave composta direta no delete, usamos deleteMany com filtro
+        await prisma.evento_Convidado.deleteMany({
+            where: {
+                ID_Evento: idEvento,
+                ID_Convidado: idConvidado
+            }
+        });
+
+        res.json({ message: "Convidado removido." });
+    } catch (error) {
+        res.status(500).json({ error: "Erro ao remover convidado." });
     }
 });
 

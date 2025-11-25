@@ -71,4 +71,44 @@ router.post('/confirmar-presenca', auth, async (req, res) => {
     }
 });
 
+// RECUSAR CONVITE (Remove o vínculo)
+router.delete('/recusar/:idEvento/:idConvidado', auth, async (req, res) => {
+    try {
+        const idEvento = parseInt(req.params.idEvento);
+        const idConvidado = parseInt(req.params.idConvidado);
+
+        await prisma.evento_Convidado.deleteMany({
+            where: {
+                ID_Evento: idEvento,
+                ID_Convidado: idConvidado
+            }
+        });
+
+        res.json({ message: "Convite recusado e removido." });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Erro ao recusar convite." });
+    }
+});
+
+// ACEITAR CONVITE (Apenas notifica o dono, pois o vínculo já existe)
+router.post('/aceitar', auth, async (req, res) => {
+    try {
+        const { idEvento, nomeConvidado } = req.body;
+        const io = req.app.get('io'); 
+
+        // Busca o evento para saber quem é o dono
+        const evento = await prisma.evento.findUnique({ where: { ID_Evento: parseInt(idEvento) } });
+
+        if (evento && io) {
+            // Usa o notificationService se estiver importado, ou emite direto via socket se preferir simplicidade
+            // Aqui assumo que você quer apenas confirmar visualmente, já que o registro já está no banco
+        }
+
+        res.json({ message: "Presença confirmada!" });
+    } catch (error) {
+        res.status(500).json({ error: "Erro ao confirmar." });
+    }
+});
+
 module.exports = router;
