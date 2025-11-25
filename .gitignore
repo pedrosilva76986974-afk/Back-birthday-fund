@@ -66,3 +66,5 @@ package-lock.json
 
 # Migrations prisma
 prisma/migrations/
+
+.env

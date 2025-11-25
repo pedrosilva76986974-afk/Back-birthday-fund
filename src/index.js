@@ -43,9 +43,10 @@ app.use('/eventos', require('./routes/evento'));
 app.use('/convidado', require('./routes/convidado'));
 app.use('/campanha', require('./routes/campanha'));
 app.use('/doacao', require('./routes/doacao'));
+// app.use("/pagamento", require("./routes/pagamento"));
 
 // --- ROTA NOTIFICAÇÕES ---
-app.use('/notificacoes', require('./routes/notificationRoutes'));
+// app.use('/notificacoes', require('./routes/notificationRoutes'));
 
 // --- ROTA SWAGGER ---
 app.use("/swagger", swaggerUiServe, swaggerUiSetup);
@@ -54,7 +55,7 @@ app.use("/swagger", swaggerUiServe, swaggerUiSetup);
 app.get('/', (req, res) => res.json({ ok: true }));
 
 // --- INICIAR CRON JOBS ---
-iniciarCronJobs();
+// iniciarCronJobs();
 
 const PORT = process.env.PORT || 3000;
 

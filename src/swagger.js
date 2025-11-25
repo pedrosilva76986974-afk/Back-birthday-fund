@@ -29,11 +29,7 @@ const options = {
       },
     },
   },
-  // --- MUDANÇA AQUI ---
-  // Deixei vazio [] para o servidor parar de tentar ler os arquivos com erro.
-  // Se o servidor ligar, o problema é formatação nos comentários das rotas.
-  apis: [], 
-  // O original era: apis: ["./src/routes/*.js"],
+  apis: ["./src/routes/*.js"],
 };
 
 const swaggerSpec = swaggerJSDoc(options);

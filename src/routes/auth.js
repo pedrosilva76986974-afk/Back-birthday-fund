@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { sendMail } = require('../utils/email');
+const auth = require('../middlewares/auth');
 
 const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '10');
 const RESET_MINUTES = parseInt(process.env.RESET_TOKEN_EXPIRE_MINUTES || '30');
@@ -106,10 +107,219 @@ router.post('/login', async (req, res) => {
     if (!ok) return res.status(401).json({ error: 'Credenciais inválidas' });
 
     const token = jwt.sign({ userId: user.ID_Usuario, email: user.Email_Usuario }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
-    return res.json({ token });
+    return res.json({ user: { userId: user.ID_Usuario, userName: user.Nome_Usuario, email: user.Email_Usuario }, token });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro no servidor' });
+  }
+});
+
+/**
+ * @swagger
+ * /auth/update-profile:
+ *   put:
+ *     summary: Atualizar nome e/ou senha do usuário autenticado
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               Nome_Usuario:
+ *                 type: string
+ *                 example: João Atualizado
+ *               senhaAtual:
+ *                 type: string
+ *                 example: 123456
+ *               novaSenha:
+ *                 type: string
+ *                 example: novaSenhaSegura123
+ *     responses:
+ *       200:
+ *         description: Alterações aplicadas com sucesso
+ *       400:
+ *         description: Requisição inválida
+ *       401:
+ *         description: Senha atual incorreta
+ */
+router.put('/update-profile', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { Nome_Usuario, senhaAtual, novaSenha } = req.body;
+
+    if (!Nome_Usuario && !senhaAtual && !novaSenha) {
+      return res.status(400).json({
+        error: "Nenhum dado enviado para atualização."
+      });
+    }
+
+    const updates = {};
+
+    // 🔹 Atualizar nome se enviado
+    if (Nome_Usuario) {
+      updates.Nome_Usuario = Nome_Usuario;
+    }
+
+    // 🔹 Atualizar senha se senhaAtual + novaSenha forem enviados
+    if (senhaAtual || novaSenha) {
+
+      // Verificar se ambos foram enviados
+      if (!senhaAtual || !novaSenha) {
+        return res.status(400).json({
+          error: "Para alterar a senha, envie 'senhaAtual' e 'novaSenha'."
+        });
+      }
+
+      const user = await prisma.usuario.findUnique({
+        where: { ID_Usuario: userId }
+      });
+
+      const senhaCorreta = await bcrypt.compare(senhaAtual, user.Senha_Usuario);
+      if (!senhaCorreta) {
+        return res.status(401).json({
+          error: "Senha atual incorreta."
+        });
+      }
+
+      const novaHash = await bcrypt.hash(novaSenha, SALT_ROUNDS);
+      updates.Senha_Usuario = novaHash;
+    }
+
+    // 🚀 Aplicar alterações
+    const updatedUser = await prisma.usuario.update({
+      where: { ID_Usuario: userId },
+      data: updates,
+      select: {
+        ID_Usuario: true,
+        Nome_Usuario: true,
+        Email_Usuario: true
+      }
+    });
+
+    res.json({
+      ok: true,
+      message: "Perfil atualizado com sucesso!",
+      usuario: updatedUser
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erro no servidor" });
+  }
+});
+
+/**
+ * @swagger
+ * /auth/update-name:
+ *   put:
+ *     summary: Atualizar nome do usuário autenticado
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               Nome_Usuario:
+ *                 type: string
+ *                 example: João da Silva Atualizado
+ *     responses:
+ *       200:
+ *         description: Nome atualizado com sucesso
+ *       400:
+ *         description: Nome não informado
+ *       401:
+ *         description: Token inválido ou não informado
+ */
+router.put('/update-name', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { Nome_Usuario } = req.body;
+
+    if (!Nome_Usuario)
+      return res.status(400).json({ error: "Nome é obrigatório" });
+
+    const updated = await prisma.usuario.update({
+      where: { ID_Usuario: userId },
+      data: { Nome_Usuario },
+      select: { ID_Usuario: true, Nome_Usuario: true, Email_Usuario: true }
+    });
+
+    res.json({ ok: true, usuario: updated });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erro no servidor" });
+  }
+});
+
+/**
+ * @swagger
+ * /auth/update-password:
+ *   put:
+ *     summary: Atualizar senha do usuário autenticado
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - senhaAtual
+ *               - novaSenha
+ *             properties:
+ *               senhaAtual:
+ *                 type: string
+ *                 example: 123456
+ *               novaSenha:
+ *                 type: string
+ *                 example: novaSenha123
+ *     responses:
+ *       200:
+ *         description: Senha atualizada com sucesso
+ *       400:
+ *         description: Dados incompletos
+ *       401:
+ *         description: Senha atual incorreta
+ */
+router.put('/update-password', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { senhaAtual, novaSenha } = req.body;
+
+    if (!senhaAtual || !novaSenha)
+      return res.status(400).json({ error: "Dados incompletos" });
+
+    const user = await prisma.usuario.findUnique({
+      where: { ID_Usuario: userId }
+    });
+
+    const senhaCorreta = await bcrypt.compare(senhaAtual, user.Senha_Usuario);
+    if (!senhaCorreta)
+      return res.status(401).json({ error: "Senha atual incorreta" });
+
+    const novaHash = await bcrypt.hash(novaSenha, SALT_ROUNDS);
+
+    await prisma.usuario.update({
+      where: { ID_Usuario: userId },
+      data: { Senha_Usuario: novaHash }
+    });
+
+    res.json({ ok: true, message: "Senha atualizada com sucesso!" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erro no servidor" });
   }
 });
 
