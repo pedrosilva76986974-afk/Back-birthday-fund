@@ -65,14 +65,14 @@ router.get('/', async (req, res) => {
 /**
  * @swagger
  * /campanha/minhas:
- * get:
- * summary: Listar apenas as campanhas do usuário logado
- * tags: [Campanhas]
- * security:
- * - bearerAuth: []
- * responses:
- * 200:
- * description: Lista das minhas campanhas
+ *   get:
+ *     summary: Listar apenas as campanhas do usuário logado
+ *     tags: [Campanhas]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista das minhas campanhas
  */
 router.get('/minhas', auth, async (req, res) => {
     try {
@@ -99,20 +99,20 @@ router.get('/minhas', auth, async (req, res) => {
 /**
  * @swagger
  * /campanha/usuario/{id}:
- * get:
- * summary: Listar campanhas de um usuário específico pelo ID
- * tags: [Campanhas]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: id
- * required: true
- * schema:
- * type: integer
- * responses:
- * 200:
- * description: Lista de campanhas do usuário solicitado
+ *   get:
+ *     summary: Listar campanhas de um usuário específico pelo ID
+ *     tags: [Campanhas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de campanhas do usuário solicitado
  */
 router.get('/usuario/:id', auth, async (req, res) => {
     try {
