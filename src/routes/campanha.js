@@ -136,4 +136,31 @@ router.get('/usuario/:id', auth, async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /campanha/ativas:
+ *   get:
+ *     summary: Listar todas as campanhas ativas
+ *     tags: [Campanhas]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de campanhas abertas
+ */
+router.get('/ativas', auth, async (req, res) => {
+    try {
+        const campanhas = await prisma.campanha.findMany({
+            where: { Status_Campanha: { not: 'ENCERRADA' } },
+            include: {
+                Evento: { select: { Titulo_Evento: true, Data_Evento: true, Local_Evento: true } }
+            }
+        });
+        res.json(campanhas);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Erro ao buscar campanhas ativas' });
+    }
+});
+
 module.exports = router;
