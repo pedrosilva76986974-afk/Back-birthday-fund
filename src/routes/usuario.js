@@ -71,12 +71,24 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', auth, async (req, res) => {
     const id = parseInt(req.params.id);
-    const user = await prisma.usuario.findUnique({
-        where: { ID_Usuario: id },
-        select: { ID_Usuario: true, Nome_Usuario: true, Email_Usuario: true }
-    });
-    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
-    res.json(user);
+
+    // SE O ID NÃO FOR NÚMERO, RETORNA ERRO E NÃO DERRUBA O SERVIDOR
+    if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID de usuário inválido.' });
+    }
+
+    try {
+        const user = await prisma.usuario.findUnique({
+            where: { ID_Usuario: id },
+            select: { ID_Usuario: true, Nome_Usuario: true, Email_Usuario: true }
+        });
+
+        if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
+        res.json(user);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Erro interno' });
+    }
 });
 
 /**
